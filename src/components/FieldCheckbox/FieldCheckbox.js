@@ -90,7 +90,7 @@ const FieldCheckboxComponent = props => {
           );
         }}
       </Field>
-      <label htmlFor={id} className={css.label}>
+      <label htmlFor={id} className={css.label} data-testid={id}>
         <span className={css.checkboxWrapper}>
           <IconCheckbox
             className={svgClassName}

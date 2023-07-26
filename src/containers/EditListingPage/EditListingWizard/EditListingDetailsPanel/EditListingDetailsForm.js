@@ -1,7 +1,7 @@
 import React from 'react';
 import { arrayOf, bool, func, shape, string } from 'prop-types';
 import { compose } from 'redux';
-import { Field, Form as FinalForm } from 'react-final-form';
+import { Field, Form as FinalForm, useField, useForm } from 'react-final-form';
 import arrayMutators from 'final-form-arrays';
 import classNames from 'classnames';
 
@@ -11,7 +11,7 @@ import { EXTENDED_DATA_SCHEMA_TYPES, propTypes } from '../../../../util/types';
 import { maxLength, required, composeValidators } from '../../../../util/validators';
 
 // Import shared components
-import { Form, Button, FieldSelect, FieldTextInput, Heading } from '../../../../components';
+import { Form, Button, FieldSelect, FieldTextInput, FieldDimensions, Heading } from '../../../../components';
 // Import modules from this directory
 import CustomExtendedDataField from '../CustomExtendedDataField';
 import css from './EditListingDetailsForm.module.css';
@@ -116,7 +116,17 @@ const FieldSelectListingType = props => {
 
 // Add collect data for listing fields (both publicData and privateData) based on configuration
 const AddListingFields = props => {
-  const { listingType, listingFieldsConfig, intl } = props;
+  const { listingType, listingFieldsConfig, intl, formApi } = props;
+  // (1) Custom filter logic for subcategories options depending on category value
+  // Get category value
+  const categoryFieldValue = formApi.getFieldState('category')?.value;
+  // Reset Subcategories field on category field change
+  React.useEffect(() => {
+    if (categoryFieldValue) {
+      formApi.change("subcategories", undefined)
+    }
+  }, [categoryFieldValue])
+
   const fields = listingFieldsConfig.reduce((pickedFields, fieldConfig) => {
     const { key, includeForListingTypes, schemaType, scope } = fieldConfig || {};
 
@@ -124,23 +134,59 @@ const AddListingFields = props => {
     const isTargetProcessAlias =
       includeForListingTypes == null || includeForListingTypes.includes(listingType);
     const isProviderScope = ['public', 'private'].includes(scope);
+    const isAllowedToRender = isKnownSchemaType && isTargetProcessAlias && isProviderScope
 
-    return isKnownSchemaType && isTargetProcessAlias && isProviderScope
-      ? [
-          ...pickedFields,
-          <CustomExtendedDataField
-            key={key}
-            name={key}
-            fieldConfig={fieldConfig}
-            defaultRequiredMessage={intl.formatMessage({
-              id: 'EditListingDetailsForm.defaultRequiredMessage',
-            })}
-          />,
-        ]
-      : pickedFields;
+    if (isAllowedToRender) {
+      // (2) Custom filter logic for subcategories options depending on category value
+      // Check subcategories field
+      const isSubcategoriesField = key === "subcategories"
+      if (isSubcategoriesField) {
+        // Check category field
+        const isCategoryField = listingFieldsConfig.find((fieldConfig) => fieldConfig.key === "category")
+        if (isCategoryField) {
+          // Filter subcategories by category value
+          const filteredSubcategoriesEnumOptions = fieldConfig.enumOptions.filter((enumOption) => {
+            const { option } = enumOption
+            // return false if no category value
+            return categoryFieldValue ? option.toLowerCase().includes(categoryFieldValue.toLowerCase()) : false
+          })
+          // If no enumOptions - hide field
+          return filteredSubcategoriesEnumOptions.length > 0
+            ? [
+              ...pickedFields,
+              <CustomExtendedDataField
+                key={key}
+                name={key}
+                fieldConfig={{
+                  ...fieldConfig,
+                  enumOptions: filteredSubcategoriesEnumOptions
+                }}
+                defaultRequiredMessage={intl.formatMessage({
+                  id: 'EditListingDetailsForm.defaultRequiredMessage',
+                })}
+              />,
+            ]
+            : pickedFields
+        }
+      }
+
+      return [
+        ...pickedFields,
+        <CustomExtendedDataField
+          key={key}
+          name={key}
+          fieldConfig={fieldConfig}
+          defaultRequiredMessage={intl.formatMessage({
+            id: 'EditListingDetailsForm.defaultRequiredMessage',
+          })}
+        />,
+      ]
+    }
+
+    return pickedFields
   }, []);
 
-  return <>{fields}</>;
+  return <>{fields}</>
 };
 
 // Form that asks title, description, transaction process and unit type for pricing
@@ -183,6 +229,9 @@ const EditListingDetailsFormComponent = props => (
           maxLength: TITLE_MAX_LENGTH,
         }
       );
+      const dimensionsRequiredMessage = intl.formatMessage({
+        id: 'EditListingDetailsForm.dimensionsRequired',
+      });
       const maxLength60Message = maxLength(maxLengthMessage, TITLE_MAX_LENGTH);
 
       const classes = classNames(css.root, className);
@@ -235,6 +284,20 @@ const EditListingDetailsFormComponent = props => (
             listingType={listingType}
             listingFieldsConfig={listingFieldsConfig}
             intl={intl}
+            formApi={formApi}
+          />
+
+          <FieldDimensions
+            id={`${formId}dimensions`}
+            name="dimensions"
+            className={css.dimensions}
+            // TODO: remove
+            type="text"
+            label={intl.formatMessage({ id: 'EditListingDetailsForm.dimensions' })}
+            // placeholder={intl.formatMessage({ id: 'EditListingDetailsForm.titlePlaceholder' })}
+            // maxLength={TITLE_MAX_LENGTH}
+            validate={required(dimensionsRequiredMessage)}
+            autoFocus={autoFocus}
           />
 
           <Button

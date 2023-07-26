@@ -7,6 +7,7 @@ import {
   SCHEMA_TYPE_TEXT,
   SCHEMA_TYPE_LONG,
   SCHEMA_TYPE_BOOLEAN,
+  SCHEMA_TYPE_DIMENSIONS,
 } from '../../../util/types';
 import { useIntl } from '../../../util/reactIntl';
 import { required, nonEmptyArray } from '../../../util/validators';
@@ -14,6 +15,7 @@ import { required, nonEmptyArray } from '../../../util/validators';
 import { FieldCheckboxGroup, FieldSelect, FieldTextInput, FieldBoolean } from '../../../components';
 // Import modules from this directory
 import css from './EditListingWizard.module.css';
+import FieldDimensions from '../../../components/FieldDimensions/FieldDimensions';
 
 const createFilterOptions = options => options.map(o => ({ key: `${o.option}`, label: o.label }));
 
@@ -136,6 +138,28 @@ const CustomFieldBoolean = props => {
   );
 };
 
+const CustomFieldDimensions = props => {
+  const { name, fieldConfig, defaultRequiredMessage, intl } = props;
+  const { label, placeholderMessage, isRequired, requiredMessage } = fieldConfig?.saveConfig || {};
+  const validateMaybe = isRequired
+    ? { validate: required(requiredMessage || defaultRequiredMessage) }
+    : {};
+  const placeholder =
+    placeholderMessage || intl.formatMessage({ id: 'CustomExtendedDataField.placeholderText' });
+
+  return (
+    <FieldDimensions
+      className={css.customField}
+      id={name}
+      name={name}
+      type="textarea"
+      label={label}
+      placeholder={placeholder}
+      {...validateMaybe}
+    />
+  );
+};
+
 /**
  * Return Final Form field for each configuration according to schema type.
  *
@@ -161,6 +185,8 @@ const CustomExtendedDataField = props => {
     ? renderFieldComponent(CustomFieldLong, props)
     : schemaType === SCHEMA_TYPE_BOOLEAN
     ? renderFieldComponent(CustomFieldBoolean, props)
+    : schemaType === SCHEMA_TYPE_DIMENSIONS
+    ? renderFieldComponent(CustomFieldDimensions, props)
     : null;
 };
 
